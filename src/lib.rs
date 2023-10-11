@@ -1,7 +1,7 @@
 use std::num::NonZeroU8;
 
 static UTF8_SJIS: phf::Map<char, [u8; 2]> = include!(concat!(env!("OUT_DIR"), "/utf8sjis.rs"));
-static SJIS_UTF8: [char; 92*94] = include!(concat!(env!("OUT_DIR"), "/sjisutf8.rs"));
+static SJIS_UTF8: [[char; 94]; 92] = include!(concat!(env!("OUT_DIR"), "/sjisutf8.rs"));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EncodedChar {
@@ -51,7 +51,7 @@ pub fn decode_char(iter: &mut impl Iterator<Item=u8>) -> Option<char> {
 		b@0x80..=0xFC => b - 0x80 + 0x3F,
 		..=0x3F | 0x7F | 0xFD.. => return None
 	} as usize;
-	Some(SJIS_UTF8[a*188+b])
+	Some(SJIS_UTF8[a*2+b/94][b%94])
 }
 
 #[test]
