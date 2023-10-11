@@ -31,9 +31,7 @@ fn main() -> anyhow::Result<()> {
 		table.push(char);
 	}
 	assert!(f.remaining().is_empty());
-	for _ in 0..188 {
-		table.push('・');
-	}
+	table.extend(['・'; 188]);
 	let table = table.chunks(94).collect::<Vec<_>>();
 	std::fs::write(out.join("sjisutf8.rs"), format!("{:?}", table))?;
 
