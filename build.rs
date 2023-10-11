@@ -25,13 +25,18 @@ fn main() -> anyhow::Result<()> {
 
 	let mut table = Vec::new();
 	let f = &mut Reader::new(include_bytes!("sjisutf8.dat"));
+	let mut first_dot = true;
 	for _ in 0..f.u32_le()? {
 		let char = f.array::<4>()?;
 		let char = std::str::from_utf8(&char)?.chars().next().unwrap();
-		table.push(char);
+		if char == '・' && !std::mem::take(&mut first_dot) {
+			table.push('�');
+		} else {
+			table.push(char);
+		}
 	}
 	assert!(f.remaining().is_empty());
-	table.extend(['・'; 188]);
+	table.extend(['�'; 188]);
 	let table = table.chunks(94).collect::<Vec<_>>();
 	std::fs::write(out.join("sjisutf8.rs"), format!("{:?}", table))?;
 

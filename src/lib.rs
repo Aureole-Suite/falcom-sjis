@@ -51,7 +51,7 @@ pub fn decode_char(iter: &mut impl Iterator<Item=u8>) -> Option<char> {
 		b@0x80..=0xFC => b - 0x80 + 0x3F,
 		..=0x3F | 0x7F | 0xFD.. => return None
 	} as usize;
-	Some(SJIS_UTF8[a*2+b/94][b%94])
+	Some(SJIS_UTF8[a*2+b/94][b%94]).filter(|ch| *ch != '�')
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn decode_then_encode() {
 			let consumed = &array[..2-it.as_slice().len()];
 			let enc = encode_char(dec).unwrap();
 			let enc = enc.into_iter().collect::<Vec<u8>>();
-			if enc != consumed && dec != '・' && !duplicates.contains(&array) {
+			if enc != consumed && !duplicates.contains(&array) {
 				panic!("{:02X?} {:?} {:02X?}", consumed, dec, enc);
 			};
 		}
