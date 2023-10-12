@@ -9,6 +9,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
+name = "falcom-sjis"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "gospel",
+ "phf",
+ "phf_codegen",
+]
+
+[[package]]
 name = "gospel"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -100,16 +110,6 @@ name = "siphasher"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
-
-[[package]]
-name = "sjis"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "gospel",
- "phf",
- "phf_codegen",
-]
 
 [[package]]
 name = "syn"
