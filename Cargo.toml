@@ -2,6 +2,11 @@
 name = "falcom-sjis"
 version = "0.1.0"
 edition = "2021"
+authors = ["Kyuuhachi <caagr98@gmail.com>"]
+description = "Falcom-compatibile Shift-JIS implementation"
+repository = "https://github.com/Aureole-Suite/falcom-sjis"
+license = "MIT OR Apache-2.0"
+keywords = ["encoding", "unicode", "charset"]
 
 [dependencies]
 phf = "0.11"
