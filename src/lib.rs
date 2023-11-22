@@ -15,6 +15,26 @@ impl EncodedChar {
 	pub const REPLACEMENT: EncodedChar = EncodedChar::Two([0x81, 0x45]);
 }
 
+impl std::ops::Deref for EncodedChar {
+	type Target = [u8];
+
+	fn deref(&self) -> &Self::Target {
+		match self {
+			EncodedChar::One(a) => a,
+			EncodedChar::Two(a) => a,
+		}
+	}
+}
+
+impl std::ops::DerefMut for EncodedChar {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		match self {
+			EncodedChar::One(a) => a,
+			EncodedChar::Two(a) => a,
+		}
+	}
+}
+
 impl IntoIterator for EncodedChar {
 	type Item = u8;
 	type IntoIter = std::array::IntoIter<u8, 2>;
@@ -172,7 +192,7 @@ pub fn decode(input: &[u8]) -> Result<String, (usize, EncodedChar)> {
 	while let Some(b1) = iter.next() {
 		match decode_char_from(b1, || iter.next()) {
 			Ok(char) => out.push(char),
-			Err(enc) => return Err((pos - enc.into_iter().len(), enc)),
+			Err(enc) => return Err((pos - enc.len(), enc)),
 		}
 	}
 	Ok(out)
