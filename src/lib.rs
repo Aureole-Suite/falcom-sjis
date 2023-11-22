@@ -12,13 +12,13 @@ static SJIS_UTF8: [[char; 94]; 94] = include!(concat!(env!("OUT_DIR"), "/sjisutf
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EncodedChar {
 	One(u8),
-	Two(u8, NonZeroU8),
+	Two(NonZeroU8, u8),
 }
 
 impl EncodedChar {
 	/// The replacement character used with [`encode_lossy`], namely `・`.
 	pub const REPLACEMENT: EncodedChar =
-		EncodedChar::Two(0x81, unsafe { NonZeroU8::new_unchecked(0x45) });
+		EncodedChar::Two(unsafe { NonZeroU8::new_unchecked(0x81) }, 0x45);
 }
 
 impl IntoIterator for EncodedChar {
@@ -31,7 +31,7 @@ impl IntoIterator for EncodedChar {
 				it.next();
 				it
 			}
-			EncodedChar::Two(a, b) => [a, b.into()].into_iter(),
+			EncodedChar::Two(a, b) => [a.into(), b].into_iter(),
 		}
 	}
 }
@@ -43,7 +43,7 @@ pub fn encode_char(char: char) -> Option<EncodedChar> {
 	} else if ('｡'..='ﾟ').contains(&char) {
 		Some(EncodedChar::One((char as u32 - '｡' as u32) as u8 + 0xA1))
 	} else if let Some(&[k1, k2]) = UTF8_SJIS.get(&char) {
-		Some(EncodedChar::Two(k1, k2.try_into().unwrap()))
+		Some(EncodedChar::Two(k1.try_into().unwrap(), k2))
 	} else {
 		None
 	}
