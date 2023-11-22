@@ -141,7 +141,11 @@ pub fn encode(str: &str) -> Result<Vec<u8>, usize> {
 pub fn encode_lossy(str: &str) -> Vec<u8> {
 	let mut out = Vec::new();
 	for char in str.chars() {
-		out.extend(encode_char(char).unwrap_or(EncodedChar::REPLACEMENT))
+		if let Some(char) = encode_char(char) {
+			out.extend(char)
+		} else {
+			out.extend(EncodedChar::REPLACEMENT)
+		}
 	}
 	out
 }
