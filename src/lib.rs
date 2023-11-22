@@ -52,20 +52,33 @@ pub fn encode_char(char: char) -> Option<EncodedChar> {
 /// Decodes a single character from the input.
 ///
 /// Consumes one or two bytes from the iterator, and returns `None` if the byte(s) cannot be decoded.
-pub fn decode_char(iter: &mut impl Iterator<Item = u8>) -> Option<char> {
-	let a = match iter.next()? {
-		a @ 0x00..=0x7F => return Some(char::from(a)),
-		a @ 0xA1..=0xDF => return Some(char::from_u32('｡' as u32 + (a - 0xA1) as u32).unwrap()),
+pub fn decode_char(iter: &mut impl Iterator<Item = u8>) -> Option<Result<char, EncodedChar>> {
+	iter.next().map(|b1| decode_char_from(b1, || iter.next()))
+}
+
+pub fn decode_char_from(b1: u8, b2: impl FnOnce() -> Option<u8>) -> Result<char, EncodedChar> {
+	let enc = EncodedChar::One(b1);
+	let a = match b1 {
+		a @ 0x00..=0x7F => return Ok(char::from(a)),
+		a @ 0xA1..=0xDF => return Ok(char::from_u32('｡' as u32 + (a - 0xA1) as u32).unwrap()),
 		a @ 0x81..=0x9F => a - 0x81,
 		a @ 0xE0..=0xEF => a - 0xE0 + 0x1F,
-		0x80 | 0xA0 | 0xF0.. => return None,
+		0x80 | 0xA0 | 0xF0.. => return Err(enc),
 	} as usize;
-	let b = match iter.next()? {
+
+	let b2 = b2().ok_or(enc)?;
+	let enc = EncodedChar::Two(b1.try_into().unwrap(), b2);
+	let b = match b2 {
 		b @ 0x40..=0x7E => b - 0x40,
 		b @ 0x80..=0xFC => b - 0x80 + 0x3F,
-		..=0x3F | 0x7F | 0xFD.. => return None,
+		..=0x3F | 0x7F | 0xFD.. => return Err(enc),
 	} as usize;
-	Some(SJIS_UTF8[a * 2 + b / 94][b % 94]).filter(|ch| *ch != '�')
+
+	let ch = SJIS_UTF8[a * 2 + b / 94][b % 94];
+	if ch == '�' {
+		return Err(enc);
+	}
+	Ok(ch)
 }
 
 #[test]
@@ -77,7 +90,7 @@ fn encode_replacement() {
 fn encode_then_decode() {
 	for char in (0..=0xFFFF).filter_map(char::from_u32) {
 		if let Some(enc) = encode_char(char) {
-			assert_eq!(decode_char(&mut enc.into_iter()), Some(char))
+			assert_eq!(decode_char(&mut enc.into_iter()), Some(Ok(char)))
 		}
 	}
 }
@@ -98,7 +111,7 @@ fn decode_then_encode() {
 	];
 	for array in (0..=0xFFFF).map(u16::to_le_bytes) {
 		let mut it = array.into_iter();
-		if let Some(dec) = decode_char(&mut it) {
+		if let Some(Ok(dec)) = decode_char(&mut it) {
 			let consumed = &array[..2 - it.as_slice().len()];
 			let enc = encode_char(dec).unwrap();
 			let enc = enc.into_iter().collect::<Vec<u8>>();
@@ -151,17 +164,14 @@ fn test_encode() {
 ///
 /// Returns `Err(position)` on encountering an invalid byte sequence, where `position` is the
 /// offset of the first byte of the sequence.
-pub fn decode(mut input: &[u8]) -> Result<String, usize> {
-	let orig_len = input.len();
+pub fn decode(input: &[u8]) -> Result<String, (usize, EncodedChar)> {
 	let mut out = String::new();
-	while !input.is_empty() {
-		let mut it = input.iter();
-		let pos = orig_len - it.as_slice().len();
-		if let Some(char) = decode_char(&mut (&mut it).copied()) {
-			out.push(char);
-			input = it.as_slice()
-		} else {
-			return Err(pos);
+	let mut pos = 0;
+	let mut iter = input.iter().copied().inspect(|_| pos += 1);
+	while let Some(b1) = iter.next() {
+		match decode_char_from(b1, || iter.next()) {
+			Ok(char) => out.push(char),
+			Err(enc) => return Err((pos - enc.into_iter().len(), enc)),
 		}
 	}
 	Ok(out)
@@ -170,16 +180,13 @@ pub fn decode(mut input: &[u8]) -> Result<String, usize> {
 /// Decodes a byte slice into a string, lossily.
 ///
 /// Invalid bytes are replaced with the unicode replacement character, one per byte.
-pub fn decode_lossy(mut input: &[u8]) -> String {
+pub fn decode_lossy(input: &[u8]) -> String {
 	let mut out = String::new();
-	while !input.is_empty() {
-		let mut it = input.iter();
-		if let Some(char) = decode_char(&mut (&mut it).copied()) {
-			out.push(char);
-			input = it.as_slice()
-		} else {
-			out.push('�');
-			input = &input[1..];
+	let mut iter = input.iter().copied();
+	while let Some(b1) = iter.next() {
+		match decode_char_from(b1, || iter.next()) {
+			Ok(char) => out.push(char),
+			Err(_) => out.push('�'),
 		}
 	}
 	out
@@ -198,6 +205,6 @@ fn test_decode() {
 	);
 	assert_eq!(
 		decode(&[0x93, 0xFA, 0x96, 0x7B, 0x32, 0x3D, 0x96, 0x7B, 0xEE, 0xEE, 0x83, 0x40]),
-		Err(8),
+		Err((8, EncodedChar::Two(0xEE.try_into().unwrap(), 0xEE))),
 	);
 }
