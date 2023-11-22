@@ -1,24 +1,18 @@
-use std::num::NonZeroU8;
-
 static UTF8_SJIS: phf::Map<char, [u8; 2]> = include!(concat!(env!("OUT_DIR"), "/utf8sjis.rs"));
 static SJIS_UTF8: [[char; 94]; 94] = include!(concat!(env!("OUT_DIR"), "/sjisutf8.rs"));
 
 /// An encoded character in Shift JIS encoding.
 ///
 /// This represents either one or two bytes, and is most conveniently used via its `IntoIterator` impl.
-///
-/// `Two` contains a `NonZeroU8` in order to keep the size to two bytes.
-/// Premature optimization, I know.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EncodedChar {
-	One(u8),
-	Two(NonZeroU8, u8),
+	One([u8; 1]),
+	Two([u8; 2]),
 }
 
 impl EncodedChar {
 	/// The replacement character used with [`encode_lossy`], namely `・`.
-	pub const REPLACEMENT: EncodedChar =
-		EncodedChar::Two(unsafe { NonZeroU8::new_unchecked(0x81) }, 0x45);
+	pub const REPLACEMENT: EncodedChar = EncodedChar::Two([0x81, 0x45]);
 }
 
 impl IntoIterator for EncodedChar {
@@ -26,12 +20,12 @@ impl IntoIterator for EncodedChar {
 	type IntoIter = std::array::IntoIter<u8, 2>;
 	fn into_iter(self) -> Self::IntoIter {
 		match self {
-			EncodedChar::One(a) => {
+			EncodedChar::One([a]) => {
 				let mut it = [0, a].into_iter();
 				it.next();
 				it
 			}
-			EncodedChar::Two(a, b) => [a.into(), b].into_iter(),
+			EncodedChar::Two([a, b]) => [a, b].into_iter(),
 		}
 	}
 }
@@ -39,11 +33,11 @@ impl IntoIterator for EncodedChar {
 /// Encodes a single character, yielding either an error or one or two bytes.
 pub fn encode_char(char: char) -> Option<EncodedChar> {
 	if char.is_ascii() {
-		Some(EncodedChar::One(char as u8))
+		Some(EncodedChar::One([char as u8]))
 	} else if ('｡'..='ﾟ').contains(&char) {
-		Some(EncodedChar::One((char as u32 - '｡' as u32) as u8 + 0xA1))
+		Some(EncodedChar::One([(char as u32 - '｡' as u32) as u8 + 0xA1]))
 	} else if let Some(&[k1, k2]) = UTF8_SJIS.get(&char) {
-		Some(EncodedChar::Two(k1.try_into().unwrap(), k2))
+		Some(EncodedChar::Two([k1, k2]))
 	} else {
 		None
 	}
@@ -57,7 +51,7 @@ pub fn decode_char(iter: &mut impl Iterator<Item = u8>) -> Option<Result<char, E
 }
 
 pub fn decode_char_from(b1: u8, b2: impl FnOnce() -> Option<u8>) -> Result<char, EncodedChar> {
-	let enc = EncodedChar::One(b1);
+	let enc = EncodedChar::One([b1]);
 	let a = match b1 {
 		a @ 0x00..=0x7F => return Ok(char::from(a)),
 		a @ 0xA1..=0xDF => return Ok(char::from_u32('｡' as u32 + (a - 0xA1) as u32).unwrap()),
@@ -67,7 +61,7 @@ pub fn decode_char_from(b1: u8, b2: impl FnOnce() -> Option<u8>) -> Result<char,
 	} as usize;
 
 	let b2 = b2().ok_or(enc)?;
-	let enc = EncodedChar::Two(b1.try_into().unwrap(), b2);
+	let enc = EncodedChar::Two([b1, b2]);
 	let b = match b2 {
 		b @ 0x40..=0x7E => b - 0x40,
 		b @ 0x80..=0xFC => b - 0x80 + 0x3F,
@@ -205,6 +199,6 @@ fn test_decode() {
 	);
 	assert_eq!(
 		decode(&[0x93, 0xFA, 0x96, 0x7B, 0x32, 0x3D, 0x96, 0x7B, 0xEE, 0xEE, 0x83, 0x40]),
-		Err((8, EncodedChar::Two(0xEE.try_into().unwrap(), 0xEE))),
+		Err((8, EncodedChar::Two([0xEE, 0xEE]))),
 	);
 }
