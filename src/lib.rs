@@ -45,11 +45,14 @@ pub fn encode_char(char: char) -> Option<EncodedChar> {
 
 /// Decodes a single character from the input.
 ///
-/// Consumes one or two bytes from the iterator, and returns `None` if the byte(s) cannot be decoded.
+/// Consumes one or two bytes from the iterator and returns the decoding result as per [`encode_char_from`], or `None` if the iterator is empty.
 pub fn decode_char(iter: &mut impl Iterator<Item = u8>) -> Option<Result<char, EncodedChar>> {
 	iter.next().map(|b1| decode_char_from(b1, || iter.next()))
 }
 
+/// Decodes a single character from an already-read input.
+///
+/// It will call the `b2` closure if necessary to complete a two-byte sequence.
 pub fn decode_char_from(b1: u8, b2: impl FnOnce() -> Option<u8>) -> Result<char, EncodedChar> {
 	let enc = EncodedChar::One([b1]);
 	let a = match b1 {
