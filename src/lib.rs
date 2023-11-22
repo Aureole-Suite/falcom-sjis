@@ -17,7 +17,8 @@ pub enum EncodedChar {
 
 impl EncodedChar {
 	/// The replacement character used with [`encode_lossy`], namely `・`.
-	pub const REPLACEMENT: EncodedChar = EncodedChar::Two(0x81, unsafe { NonZeroU8::new_unchecked(0x45) });
+	pub const REPLACEMENT: EncodedChar =
+		EncodedChar::Two(0x81, unsafe { NonZeroU8::new_unchecked(0x45) });
 }
 
 impl IntoIterator for EncodedChar {
@@ -35,7 +36,6 @@ impl IntoIterator for EncodedChar {
 	}
 }
 
-
 /// Encodes a single character, yielding either an error or one or two bytes.
 pub fn encode_char(char: char) -> Option<EncodedChar> {
 	if char.is_ascii() {
@@ -52,20 +52,20 @@ pub fn encode_char(char: char) -> Option<EncodedChar> {
 /// Decodes a single character from the input.
 ///
 /// Consumes one or two bytes from the iterator, and returns `None` if the byte(s) cannot be decoded.
-pub fn decode_char(iter: &mut impl Iterator<Item=u8>) -> Option<char> {
+pub fn decode_char(iter: &mut impl Iterator<Item = u8>) -> Option<char> {
 	let a = match iter.next()? {
-		a@0x00..=0x7F => return Some(char::from(a)),
-		a@0xA1..=0xDF => return Some(char::from_u32('｡' as u32 + (a - 0xA1) as u32).unwrap()),
-		a@0x81..=0x9F => a - 0x81,
-		a@0xE0..=0xEF => a - 0xE0 + 0x1F,
-		0x80 | 0xA0 | 0xF0.. => return None
+		a @ 0x00..=0x7F => return Some(char::from(a)),
+		a @ 0xA1..=0xDF => return Some(char::from_u32('｡' as u32 + (a - 0xA1) as u32).unwrap()),
+		a @ 0x81..=0x9F => a - 0x81,
+		a @ 0xE0..=0xEF => a - 0xE0 + 0x1F,
+		0x80 | 0xA0 | 0xF0.. => return None,
 	} as usize;
 	let b = match iter.next()? {
-		b@0x40..=0x7E => b - 0x40,
-		b@0x80..=0xFC => b - 0x80 + 0x3F,
-		..=0x3F | 0x7F | 0xFD.. => return None
+		b @ 0x40..=0x7E => b - 0x40,
+		b @ 0x80..=0xFC => b - 0x80 + 0x3F,
+		..=0x3F | 0x7F | 0xFD.. => return None,
 	} as usize;
-	Some(SJIS_UTF8[a*2+b/94][b%94]).filter(|ch| *ch != '�')
+	Some(SJIS_UTF8[a * 2 + b / 94][b % 94]).filter(|ch| *ch != '�')
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn decode_then_encode() {
 	for array in (0..=0xFFFF).map(u16::to_le_bytes) {
 		let mut it = array.into_iter();
 		if let Some(dec) = decode_char(&mut it) {
-			let consumed = &array[..2-it.as_slice().len()];
+			let consumed = &array[..2 - it.as_slice().len()];
 			let enc = encode_char(dec).unwrap();
 			let enc = enc.into_iter().collect::<Vec<u8>>();
 			if enc != consumed && !duplicates.contains(&array) {
@@ -119,7 +119,7 @@ pub fn encode(str: &str) -> Result<Vec<u8>, usize> {
 		if let Some(char) = encode_char(char) {
 			out.extend(char)
 		} else {
-			return Err(pos)
+			return Err(pos);
 		}
 	}
 	Ok(out)
@@ -136,22 +136,16 @@ pub fn encode_lossy(str: &str) -> Vec<u8> {
 	out
 }
 
+#[rustfmt::skip]
 #[test]
 fn test_encode() {
 	assert_eq!(
 		encode("日本ファルコム").as_deref(),
 		Ok(&[0x93u8, 0xFA, 0x96, 0x7b, 0x83, 0x74, 0x83, 0x40, 0x83, 0x8B, 0x83, 0x52, 0x83, 0x80] as &[_]),
 	);
-	assert_eq!(
-		encode("日本2=₂"),
-		Err("日本2=".len()),
-	);
-	assert_eq!(
-		decode_lossy(&encode_lossy("日本2=₂")),
-		"日本2=・"
-	);
+	assert_eq!(encode("日本2=₂"), Err("日本2=".len()),);
+	assert_eq!(decode_lossy(&encode_lossy("日本2=₂")), "日本2=・");
 }
-
 
 /// Decodes a byte slice into a string.
 ///
@@ -167,7 +161,7 @@ pub fn decode(mut input: &[u8]) -> Result<String, usize> {
 			out.push(char);
 			input = it.as_slice()
 		} else {
-			return Err(pos)
+			return Err(pos);
 		}
 	}
 	Ok(out)
@@ -191,7 +185,7 @@ pub fn decode_lossy(mut input: &[u8]) -> String {
 	out
 }
 
-
+#[rustfmt::skip]
 #[test]
 fn test_decode() {
 	assert_eq!(
