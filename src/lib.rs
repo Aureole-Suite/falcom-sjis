@@ -88,7 +88,11 @@ pub fn decode_char_from(b1: u8, b2: impl FnOnce() -> Option<u8>) -> Result<char,
 		a @ 0xA1..=0xDF => return Ok(char::from_u32('｡' as u32 + (a - 0xA1) as u32).unwrap()),
 		a @ 0x81..=0x9F => a - 0x81,
 		a @ 0xE0..=0xEF => a - 0xE0 + 0x1F,
-		0x80 | 0xA0 | 0xF0.. => return Err(enc.get()),
+		0x80 | 0xA0 => return Err(enc.get()),
+		0xF0.. => {
+			b2()?;
+			return Err(enc.get());
+		}
 	} as usize;
 
 	let b = match b2()? {
