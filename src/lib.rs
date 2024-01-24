@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 static UTF8_SJIS: phf::Map<char, [u8; 2]> = include!(concat!(env!("OUT_DIR"), "/utf8sjis.rs"));
 static SJIS_UTF8: [[char; 94]; 94] = include!(concat!(env!("OUT_DIR"), "/sjisutf8.rs"));
 
@@ -74,26 +76,30 @@ pub fn decode_char(iter: &mut impl Iterator<Item = u8>) -> Option<Result<char, E
 ///
 /// It will call the `b2` closure if necessary to complete a two-byte sequence.
 pub fn decode_char_from(b1: u8, b2: impl FnOnce() -> Option<u8>) -> Result<char, EncodedChar> {
-	let enc = EncodedChar::One([b1]);
+	let enc = Cell::new(EncodedChar::One([b1]));
+	let b2 = || {
+		let b2 = b2().ok_or(enc.get())?;
+		enc.set(EncodedChar::Two([b1, b2]));
+		Ok(b2)
+	};
+
 	let a = match b1 {
 		a @ 0x00..=0x7F => return Ok(char::from(a)),
 		a @ 0xA1..=0xDF => return Ok(char::from_u32('｡' as u32 + (a - 0xA1) as u32).unwrap()),
 		a @ 0x81..=0x9F => a - 0x81,
 		a @ 0xE0..=0xEF => a - 0xE0 + 0x1F,
-		0x80 | 0xA0 | 0xF0.. => return Err(enc),
+		0x80 | 0xA0 | 0xF0.. => return Err(enc.get()),
 	} as usize;
 
-	let b2 = b2().ok_or(enc)?;
-	let enc = EncodedChar::Two([b1, b2]);
-	let b = match b2 {
+	let b = match b2()? {
 		b @ 0x40..=0x7E => b - 0x40,
 		b @ 0x80..=0xFC => b - 0x80 + 0x3F,
-		..=0x3F | 0x7F | 0xFD.. => return Err(enc),
+		..=0x3F | 0x7F | 0xFD.. => return Err(enc.get()),
 	} as usize;
 
 	let ch = SJIS_UTF8[a * 2 + b / 94][b % 94];
 	if ch == '�' {
-		return Err(enc);
+		return Err(enc.get());
 	}
 	Ok(ch)
 }
