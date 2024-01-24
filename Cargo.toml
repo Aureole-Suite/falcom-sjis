@@ -1,6 +1,6 @@
 [package]
 name = "falcom-sjis"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Kyuuhachi <caagr98@gmail.com>"]
 description = "Falcom-compatibile Shift JIS implementation"
