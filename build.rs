@@ -37,7 +37,7 @@ fn main() -> anyhow::Result<()> {
 	}
 	assert!(f.remaining().is_empty());
 	table.extend(['�'; 188]);
-	let table = table.chunks(94).collect::<Vec<_>>();
+	let table = table.chunks(188).collect::<Vec<_>>();
 	std::fs::write(out.join("sjisutf8.rs"), format!("{:?}", table))?;
 
 	Ok(())

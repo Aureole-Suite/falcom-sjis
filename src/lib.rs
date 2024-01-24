@@ -1,7 +1,7 @@
 use std::cell::Cell;
 
 static UTF8_SJIS: phf::Map<char, [u8; 2]> = include!(concat!(env!("OUT_DIR"), "/utf8sjis.rs"));
-static SJIS_UTF8: [[char; 94]; 94] = include!(concat!(env!("OUT_DIR"), "/sjisutf8.rs"));
+static SJIS_UTF8: [[char; 188]; 47] = include!(concat!(env!("OUT_DIR"), "/sjisutf8.rs"));
 
 /// An encoded character in Shift JIS encoding.
 ///
@@ -101,7 +101,7 @@ pub fn decode_char_from(b1: u8, b2: impl FnOnce() -> Option<u8>) -> Result<char,
 		..=0x3F | 0x7F | 0xFD.. => return Err(enc.get()),
 	} as usize;
 
-	let ch = SJIS_UTF8[a * 2 + b / 94][b % 94];
+	let ch = SJIS_UTF8[a][b];
 	if ch == '�' {
 		return Err(enc.get());
 	}
